@@ -1,0 +1,51 @@
+{
+  "manopchenko@yandex.ru": {
+    "email": "manopchenko@yandex.ru",
+    "username": "",
+    "firstName": "",
+    "lastName": "",
+    "status": "",
+    "avatar": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='25' fill='%232ea6ff'/%3E%3Ctext x='25' y='35' font-size='25' text-anchor='middle' fill='white' font-family='Arial'%3E%F0%9F%8D%8B%3C/text%3E%3C/svg%3E",
+    "device": "desktop",
+    "socketId": "6GrmU7osPNUMkYA3AAAl",
+    "registeredAt": 1771618421731,
+    "verified": true,
+    "lastSeen": 1771620313042,
+    "badge": true,
+    "savedMessages": [
+      {
+        "id": 1771618707416.7124,
+        "text": "хахол",
+        "timestamp": 1771618707416,
+        "from": "manopchenko@yandex.ru"
+      }
+    ],
+    "passwordHash": null
+  },
+  "guest_1771618518857_7ry04@local.guest": {
+    "email": "guest_1771618518857_7ry04@local.guest",
+    "username": "01",
+    "firstName": "",
+    "lastName": "",
+    "status": "В сети",
+    "avatar": null,
+    "device": "mobile",
+    "socketId": null,
+    "registeredAt": 1771618518857,
+    "verified": true,
+    "lastSeen": 1771618797627,
+    "badge": false,
+    "savedMessages": [],
+    "passwordHash": null,
+    "offlineMessages": [
+      {
+        "from": "ai_bot",
+        "fromUsername": "🤖 AI Bot",
+        "fromDevice": "bot",
+        "type": "text",
+        "data": "📢 **Рассылка от администратора**\n\nВсем привет",
+        "timestamp": 1771620305504
+      }
+    ]
+  }
+}
