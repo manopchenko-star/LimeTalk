@@ -70,7 +70,7 @@ Promise.all([loadUsers(), loadChannels(), loadReactions(), loadMessages()]).then
 // ========== НАСТРОЙКИ ПОЧТЫ (ЯНДЕКС) ==========
 const transporter = nodemailer.createTransport({
   host: 'smtp.yandex.ru',
-  port: 587,
+  port: 25,
   secure: true,
   auth: {
     user: 'LimeTalk@yandex.ru',   // ваш email
