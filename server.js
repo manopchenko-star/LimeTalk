@@ -90,29 +90,20 @@ if (!USE_WEBHOOK) {
     const chatId = callbackQuery.message.chat.id;
     const data = callbackQuery.data;
 
-    console.log('Получен callback_query:', data);
-
-    // Ожидаем данные в формате confirm_admin:requestId
-    if (data.startsWith('confirm_admin:')) {
-      const requestId = data.split(':')[1];
-      console.log('requestId:', requestId);
-
-      const confirmation = pendingAdminConfirmations.get(requestId);
+    if (data === 'confirm_admin') {
+      // Приводим chatId к строке (как при сохранении)
+      const confirmation = pendingAdminConfirmations.get(String(chatId));
       if (!confirmation) {
-        console.log('Запрос не найден для requestId:', requestId);
-        await bot.sendMessage(chatId, '❌ Запрос не найден или устарел. (Возможно, прошло более 5 минут)');
-        await bot.answerCallbackQuery(callbackQuery.id);
+        await bot.sendMessage(chatId, 'Нет активного запроса на подтверждение.');
         return;
       }
 
       const email = confirmation.email;
-      console.log('Подтверждаем доступ для email:', email);
-
       // Добавляем пользователя в adminAuthorized
       adminAuthorized.add(email);
 
       // Отправляем сообщение в Telegram
-      await bot.sendMessage(chatId, `✅ Доступ к админ-панели подтверждён для пользователя ${email}.`);
+      await bot.sendMessage(chatId, '✅ Доступ к админ-панели подтверждён. Можете вернуться в чат.');
 
       // Уведомляем клиента через socket (если он ещё онлайн)
       if (confirmation.socketId) {
@@ -120,12 +111,10 @@ if (!USE_WEBHOOK) {
       }
 
       // Удаляем запись
-      pendingAdminConfirmations.delete(requestId);
+      pendingAdminConfirmations.delete(String(chatId));
 
       // Отвечаем на callback, чтобы убрать "часики" на кнопке
       await bot.answerCallbackQuery(callbackQuery.id);
-    } else {
-      console.log('Неизвестный callback_data:', data);
     }
   });
   // Сохраняем бота в глобальной области
@@ -148,21 +137,19 @@ if (!USE_WEBHOOK) {
   bot.on('callback_query', async (callbackQuery) => {
     const chatId = callbackQuery.message.chat.id;
     const data = callbackQuery.data;
-    if (data.startsWith('confirm_admin:')) {
-      const requestId = data.split(':')[1];
-      const confirmation = pendingAdminConfirmations.get(requestId);
+    if (data === 'confirm_admin') {
+      const confirmation = pendingAdminConfirmations.get(String(chatId));
       if (!confirmation) {
-        await bot.sendMessage(chatId, '❌ Запрос не найден или устарел.');
-        await bot.answerCallbackQuery(callbackQuery.id);
+        await bot.sendMessage(chatId, 'Нет активного запроса на подтверждение.');
         return;
       }
       const email = confirmation.email;
       adminAuthorized.add(email);
-      await bot.sendMessage(chatId, `✅ Доступ к админ-панели подтверждён для пользователя ${email}.`);
+      await bot.sendMessage(chatId, '✅ Доступ к админ-панели подтверждён.');
       if (confirmation.socketId) {
         io.to(confirmation.socketId).emit('admin access granted');
       }
-      pendingAdminConfirmations.delete(requestId);
+      pendingAdminConfirmations.delete(String(chatId));
       await bot.answerCallbackQuery(callbackQuery.id);
     }
   });
@@ -171,22 +158,15 @@ if (!USE_WEBHOOK) {
 
 // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
 const pendingCodes = new Map();          // email -> { code, expires } (для входа по коду)
+const adminAwaitingPassword = new Map(); // email -> true (ожидание пароля) – для старого способа
 const adminAuthorized = new Set();       // email пользователей, прошедших полную аутентификацию
 const pendingDeletions = new Map();      // email -> { code, expires } для подтверждения удаления всех
-const pendingAdminConfirmations = new Map(); // requestId -> { email, socketId, expires } для подтверждения админ-доступа
+const pendingAdminConfirmations = new Map(); // telegramChatId (string) -> { email, socketId } для подтверждения админ-доступа
+let deleteTimer = null;                  // таймер для отложенного удаления
+let deleteScheduled = false;             // флаг, что удаление запланировано
 const BOT_ID = 'ai_bot';
 const BOT_NAME = '🤖 AI Bot';
-
-// Таймер для очистки устаревших запросов (каждую минуту)
-setInterval(() => {
-  const now = Date.now();
-  for (let [requestId, conf] of pendingAdminConfirmations.entries()) {
-    if (conf.expires < now) {
-      pendingAdminConfirmations.delete(requestId);
-      console.log(`Очищен устаревший запрос ${requestId}`);
-    }
-  }
-}, 60 * 1000);
+const ADMIN_PASSWORD = 'Anopchenko2011'; // старый пароль (для обратной совместимости)
 
 // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
 function getUserEmailBySocketId(socketId) {
@@ -195,8 +175,41 @@ function getUserEmailBySocketId(socketId) {
   }
   return null;
 }
+
 function getChatId(user1, user2) {
   return [user1, user2].sort().join(':');
+}
+
+// ========== ФУНКЦИЯ ДЛЯ ОТПРАВКИ СПИСКА ПОЛЬЗОВАТЕЛЕЙ КОНКРЕТНОМУ СОКЕТУ ==========
+// (вынесена в глобальную область, чтобы быть доступной из performDeleteAll)
+async function broadcastUserListForSocket(socket) {
+  const email = getUserEmailBySocketId(socket.id);
+  if (!email) return;
+  const userList = [];
+  for (let e in usersByEmail) {
+    if (e === email) continue;
+    const u = usersByEmail[e];
+    userList.push({
+      id: u.email,
+      username: u.username,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      avatar: u.avatar,
+      status: u.status,
+      badge: u.badge,
+      online: !!u.socketId,
+      lastSeen: u.lastSeen
+    });
+  }
+  // Добавляем бота вручную
+  userList.push({
+    id: BOT_ID,
+    username: BOT_NAME,
+    device: 'bot',
+    online: true,
+    badge: false
+  });
+  socket.emit('user list', userList);
 }
 
 // ========== ФУНКЦИЯ ДЛЯ ОТПРАВКИ СООБЩЕНИЙ ВНУТРЕННЕГО БОТА ==========
@@ -236,24 +249,17 @@ async function requestAdminAccess(socket, userEmail) {
     return;
   }
 
-  // Генерируем уникальный ID запроса
-  const requestId = crypto.randomBytes(8).toString('hex');
-  const expires = Date.now() + 5 * 60 * 1000; // 5 минут
-
-  // Сохраняем запрос
-  pendingAdminConfirmations.set(requestId, {
+  // Сохраняем запрос, используя строковый ключ
+  pendingAdminConfirmations.set(String(ADMIN_TELEGRAM_ID), {
     email: userEmail,
-    socketId: socket.id,
-    expires: expires
+    socketId: socket.id
   });
-
-  console.log(`Создан запрос ${requestId} для ${userEmail}, expires: ${new Date(expires).toLocaleString()}`);
 
   try {
     const inlineKeyboard = {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '✅ Подтвердить доступ', callback_data: `confirm_admin:${requestId}` }]
+          [{ text: '✅ Подтвердить доступ', callback_data: 'confirm_admin' }]
         ]
       }
     };
@@ -266,6 +272,37 @@ async function requestAdminAccess(socket, userEmail) {
   } catch (err) {
     console.error('Ошибка отправки в Telegram:', err);
     socket.emit('admin access error', '❌ Не удалось отправить запрос.');
+  }
+}
+
+// ========== ФУНКЦИЯ ВЫПОЛНЕНИЯ УДАЛЕНИЯ ==========
+async function performDeleteAll(adminEmail) {
+  if (!deleteScheduled) return; // уже выполнено или отменено
+
+  console.log(`Удаление всех аккаунтов (кроме ${adminEmail} и бота) по таймеру`);
+  const usersToDelete = Object.keys(usersByEmail).filter(e => e !== adminEmail && e !== BOT_ID);
+  for (let e of usersToDelete) {
+    const user = usersByEmail[e];
+    if (user && user.socketId) {
+      io.to(user.socketId).emit('account deleted');
+    }
+    delete usersByEmail[e];
+  }
+  await saveUsers();
+
+  deleteScheduled = false;
+  deleteTimer = null;
+
+  // Уведомляем всех оставшихся (админа и бота)
+  for (let e in usersByEmail) {
+    if (usersByEmail[e].socketId) {
+      broadcastUserListForSocket(io.sockets.sockets.get(usersByEmail[e].socketId));
+    }
+  }
+  // Админу отправляем подтверждение
+  const adminSocket = usersByEmail[adminEmail]?.socketId;
+  if (adminSocket) {
+    io.to(adminSocket).emit('all accounts deleted');
   }
 }
 
@@ -313,12 +350,18 @@ io.on('connection', (socket) => {
       socket.emit('admin error', 'Доступ запрещён');
       return;
     }
+    // Запрещаем удаление бота
+    if (emailToDelete === BOT_ID) {
+      socket.emit('admin error', 'Нельзя удалить бота');
+      return;
+    }
     if (!usersByEmail[emailToDelete]) {
       socket.emit('admin error', 'Пользователь не найден');
       return;
     }
     delete usersByEmail[emailToDelete];
     await saveUsers();
+    // Обновляем списки у всех админов
     for (let e in usersByEmail) {
       if (adminAuthorized.has(e) && usersByEmail[e].socketId) {
         broadcastUserListForSocket(io.sockets.sockets.get(usersByEmail[e].socketId));
@@ -338,6 +381,7 @@ io.on('connection', (socket) => {
     const expires = Date.now() + 5 * 60 * 1000;
     pendingDeletions.set(adminEmail, { code, expires });
 
+    // Отправляем код в Telegram
     if (global.telegramBot && ADMIN_TELEGRAM_ID) {
       try {
         await global.telegramBot.sendMessage(ADMIN_TELEGRAM_ID, `🔐 Код подтверждения для удаления ВСЕХ аккаунтов: ${code}\nДействителен 5 минут.`);
@@ -348,10 +392,11 @@ io.on('connection', (socket) => {
     } else {
       await sendBotMessage(adminEmail, `🔐 Код подтверждения для удаления ВСЕХ аккаунтов: ${code}\nДействителен 5 минут.`);
     }
+
     socket.emit('delete code sent', { message: 'Код отправлен в Telegram' });
   });
 
-  // ----- ПОДТВЕРЖДЕНИЕ УДАЛЕНИЯ ВСЕХ АККАУНТОВ -----
+  // ----- ПОДТВЕРЖДЕНИЕ УДАЛЕНИЯ ВСЕХ АККАУНТОВ (с таймером) -----
   socket.on('confirm delete all accounts', async ({ code }) => {
     const adminEmail = getUserEmailBySocketId(socket.id);
     if (!adminAuthorized.has(adminEmail)) {
@@ -365,25 +410,33 @@ io.on('connection', (socket) => {
     }
     pendingDeletions.delete(adminEmail);
 
-    const usersToDelete = Object.keys(usersByEmail).filter(e => e !== adminEmail && e !== BOT_ID);
-    for (let e of usersToDelete) {
-      delete usersByEmail[e];
+    // Если уже запланировано удаление, отменяем старый таймер
+    if (deleteScheduled) {
+      clearTimeout(deleteTimer);
+      deleteScheduled = false;
     }
-    await saveUsers();
 
-    socket.emit('all accounts deleted');
-    for (let e in usersByEmail) {
-      if (usersByEmail[e].socketId) {
-        broadcastUserListForSocket(io.sockets.sockets.get(usersByEmail[e].socketId));
+    // Рассылаем всем пользователям (включая админа) предупреждение и таймер
+    const startTime = Date.now();
+    const totalSeconds = 60;
+    const endTime = startTime + totalSeconds * 1000;
+
+    // Отправляем событие всем клиентам (включая админа) о начале обратного отсчёта
+    for (let email in usersByEmail) {
+      const user = usersByEmail[email];
+      if (user.socketId && email !== BOT_ID) {
+        io.to(user.socketId).emit('delete countdown start', { endTime, totalSeconds });
       }
     }
-  });
 
-  // ----- ЗАПРОС АДМИН-ДОСТУПА (обработчик от клиента) -----
-  socket.on('request admin access', async () => {
-    const email = getUserEmailBySocketId(socket.id);
-    if (!email) return;
-    await requestAdminAccess(socket, email);
+    // Админу отправляем дополнительное уведомление через бота
+    await sendBotMessage(adminEmail, '🔔 Вы запустили удаление всех аккаунтов. Осталось 60 секунд.');
+
+    // Планируем фактическое удаление через 60 секунд
+    deleteScheduled = true;
+    deleteTimer = setTimeout(async () => {
+      await performDeleteAll(adminEmail);
+    }, totalSeconds * 1000);
   });
 
   // ----- УДАЛЕНИЕ АККАУНТА (самостоятельное) -----
@@ -843,7 +896,7 @@ io.on('connection', (socket) => {
     }
 
     if (lower === 'админ панель limetalk') {
-      // Отправляем запрос админу напрямую
+      // Запрашиваем подтверждение у главного админа
       await requestAdminAccess(socket, fromEmail);
       await sendBotMessage(fromEmail, '🔐 Запрос отправлен администратору. Ожидайте подтверждения в Telegram.');
       return;
@@ -867,36 +920,6 @@ io.on('connection', (socket) => {
       }
     }
   });
-
-  // ----- ФУНКЦИЯ ДЛЯ ОТПРАВКИ СПИСКА ПОЛЬЗОВАТЕЛЕЙ (кроме себя) + БОТ -----
-  async function broadcastUserListForSocket(socket) {
-    const email = getUserEmailBySocketId(socket.id);
-    if (!email) return;
-    const userList = [];
-    for (let e in usersByEmail) {
-      if (e === email) continue;
-      const u = usersByEmail[e];
-      userList.push({
-        id: u.email,
-        username: u.username,
-        firstName: u.firstName,
-        lastName: u.lastName,
-        avatar: u.avatar,
-        status: u.status,
-        badge: u.badge,
-        online: !!u.socketId,
-        lastSeen: u.lastSeen
-      });
-    }
-    userList.push({
-      id: BOT_ID,
-      username: BOT_NAME,
-      device: 'bot',
-      online: true,
-      badge: false
-    });
-    socket.emit('user list', userList);
-  }
 });
 
 // ========== ЗАПУСК ==========
