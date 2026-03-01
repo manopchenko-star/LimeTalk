@@ -35,20 +35,26 @@
             </div>
         </div>
 
+        <!-- Форма входа по паролю -->
         <div id="password-login" style="display: none;">
-            <input type="email" id="login-email" placeholder="Email">
-            <input type="password" id="login-password" placeholder="Пароль">
-            <button id="login-password-btn">Войти</button>
+            <form id="password-login-form" onsubmit="return false;">
+                <input type="email" id="login-email" placeholder="Email" required>
+                <input type="password" id="login-password" placeholder="Пароль" required>
+                <button type="button" id="login-password-btn">Войти</button>
+            </form>
             <div id="login-error"></div>
         </div>
 
+        <!-- Форма регистрации -->
         <div id="register-form" style="display: none;">
-            <input type="email" id="reg-email" placeholder="Email">
-            <input type="text" id="reg-username" placeholder="Юзернейм" maxlength="30">
-            <input type="password" id="reg-password" placeholder="Пароль">
-            <input type="text" id="reg-firstname" placeholder="Имя (необязательно)">
-            <input type="text" id="reg-lastname" placeholder="Фамилия (необязательно)">
-            <button id="register-btn">Зарегистрироваться</button>
+            <form id="register-form-inner" onsubmit="return false;">
+                <input type="email" id="reg-email" placeholder="Email" required>
+                <input type="text" id="reg-username" placeholder="Юзернейм" maxlength="30" required>
+                <input type="password" id="reg-password" placeholder="Пароль" required>
+                <input type="text" id="reg-firstname" placeholder="Имя (необязательно)">
+                <input type="text" id="reg-lastname" placeholder="Фамилия (необязательно)">
+                <button type="button" id="register-btn">Зарегистрироваться</button>
+            </form>
             <div id="register-error"></div>
         </div>
 
@@ -181,12 +187,14 @@
             <h2>Редактировать профиль</h2>
             <img id="modal-avatar" class="avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='25' fill='%232ea6ff'/%3E%3Ctext x='25' y='35' font-size='25' text-anchor='middle' fill='white' font-family='Arial'%3E🍋%3C/text%3E%3C/svg%3E">
             <input type="file" id="avatar-upload" accept="image/*">
-            <input type="text" id="edit-firstname" placeholder="Имя">
-            <input type="text" id="edit-lastname" placeholder="Фамилия">
-            <input type="text" id="edit-username" placeholder="Никнейм">
-            <input type="text" id="edit-status" placeholder="Статус">
-            <input type="password" id="edit-new-password" placeholder="Новый пароль (оставьте пустым)">
-            <button id="save-profile">Сохранить</button>
+            <form id="profile-form" onsubmit="return false;">
+                <input type="text" id="edit-firstname" placeholder="Имя">
+                <input type="text" id="edit-lastname" placeholder="Фамилия">
+                <input type="text" id="edit-username" placeholder="Никнейм">
+                <input type="text" id="edit-status" placeholder="Статус">
+                <input type="password" id="edit-new-password" placeholder="Новый пароль (оставьте пустым)">
+                <button type="button" id="save-profile">Сохранить</button>
+            </form>
         </div>
     </div>
 
@@ -220,6 +228,17 @@
             <input type="text" id="delete-code-input" placeholder="6-значный код" maxlength="6">
             <button id="confirm-delete-btn" class="danger-btn">Подтвердить удаление</button>
             <div id="delete-error" style="color: red; margin-top: 10px;"></div>
+        </div>
+    </div>
+
+    <!-- Полноэкранный таймер удаления -->
+    <div id="delete-timer-overlay" class="delete-timer-overlay" style="display: none;">
+        <div class="timer-container">
+            <h2>⚠️ ВНИМАНИЕ ⚠️</h2>
+            <p>Администратор инициировал удаление всех аккаунтов.</p>
+            <div id="timer-display" class="timer-display">60</div>
+            <p>секунд до полного удаления</p>
+            <p class="timer-warning">Все ваши сообщения и данные будут безвозвратно потеряны.</p>
         </div>
     </div>
 
