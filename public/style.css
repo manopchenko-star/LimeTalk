@@ -261,6 +261,50 @@ body.snow-visible #snow-canvas {
     opacity: 0.8;
 }
 
+/* ===== ПОЛНОЭКРАННЫЙ ТАЙМЕР УДАЛЕНИЯ ===== */
+.delete-timer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    text-align: center;
+    backdrop-filter: blur(5px);
+}
+.timer-container {
+    max-width: 500px;
+    padding: 30px;
+    border-radius: 20px;
+    background: #1a1a2e;
+    box-shadow: 0 0 30px rgba(255, 0, 0, 0.5);
+    border: 2px solid #ff4444;
+}
+.timer-container h2 {
+    color: #ff4444;
+    font-size: 32px;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+}
+.timer-display {
+    font-size: 120px;
+    font-weight: bold;
+    font-family: monospace;
+    color: #ffaa00;
+    margin: 20px 0;
+    text-shadow: 0 0 20px #ffaa00;
+}
+.timer-warning {
+    color: #ff8888;
+    font-size: 18px;
+    margin-top: 20px;
+}
+
 /* ===== ОСТАЛЬНЫЕ СТИЛИ ===== */
 #login-container {
     border-radius: 10px;
@@ -472,13 +516,13 @@ body.snow-visible #snow-canvas {
     color: #2ea6ff;
     border-bottom-color: #2ea6ff;
 }
-.user-list {
+.user-list, .group-list, .channels-list {
     flex: 1;
     overflow-y: auto;
     list-style: none;
     display: none;
 }
-.user-list li {
+.user-list li, .group-list li, .channels-list li {
     display: flex;
     align-items: center;
     padding: 10px 15px;
@@ -521,6 +565,28 @@ body.snow-visible #snow-canvas {
     line-height: 18px;
     font-size: 12px;
     margin-left: 5px;
+}
+.channel-controls {
+    padding: 10px;
+    display: flex;
+    gap: 5px;
+    border-top: 1px solid #1f2c38;
+}
+.channel-controls input {
+    flex: 1;
+    background: #1f2c38;
+    border: none;
+    padding: 8px;
+    border-radius: 20px;
+    color: #fff;
+}
+.channel-controls button {
+    background: #2ea6ff;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 15px;
+    color: #fff;
+    cursor: pointer;
 }
 .chat-area {
     flex: 1;
