@@ -109,6 +109,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
     const deleteError = document.getElementById('delete-error');
 
+    // Элементы для таймера удаления
+    const deleteTimerOverlay = document.getElementById('delete-timer-overlay');
+    const timerDisplay = document.getElementById('timer-display');
+    let timerInterval = null;
+
     const BOT_ID = 'ai_bot';
     let currentEmail = localStorage.getItem('tg_email') || null;
     let currentChat = null;
@@ -1126,6 +1131,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     socket.on('all accounts deleted', () => {
         deleteConfirmModal.style.display = 'none';
+        if (deleteTimerOverlay.style.display === 'flex') {
+            deleteTimerOverlay.style.display = 'none';
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
         alert('Все аккаунты, кроме вашего и бота, удалены.');
     });
 
@@ -1169,6 +1181,26 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // ===== ТАЙМЕР УДАЛЕНИЯ ВСЕХ АККАУНТОВ =====
+    socket.on('delete countdown start', ({ endTime, totalSeconds }) => {
+        deleteTimerOverlay.style.display = 'flex';
+        const updateTimer = () => {
+            const now = Date.now();
+            const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
+            timerDisplay.innerText = remaining;
+            if (remaining <= 0) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        };
+        updateTimer();
+        timerInterval = setInterval(updateTimer, 200);
+    });
+
+    socket.on('delete countdown started', ({ message }) => {
+        alert(message);
+    });
+
     // ===== УПРАВЛЕНИЕ ВКЛАДКАМИ =====
     function setActiveTab(tabElement) {
         if (!tabElement) return;
@@ -1197,25 +1229,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (tabAdmin) tabAdmin.addEventListener('click', () => setActiveTab(tabAdmin));
 
     if (tabContacts) setActiveTab(tabContacts);
-
-    // ===== ОБРАБОТЧИКИ ДЛЯ АДМИН-ДОСТУПА (НОВЫЕ) =====
-    socket.on('admin access request sent', ({ message }) => {
-        // Можно показать уведомление
-        alert(message);
-    });
-
-    socket.on('admin access error', (msg) => {
-        alert(msg);
-    });
-
-    socket.on('admin access granted', () => {
-        alert('✅ Доступ к админ-панели подтверждён!');
-        if (tabAdmin) {
-            tabAdmin.style.display = 'inline-block';
-            // Можно сразу переключиться на админку
-            setActiveTab(tabAdmin);
-        }
-    });
 
     // ===== ЗВОНКИ =====
     const configuration = {
@@ -1357,5 +1370,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     callCloseBtn.addEventListener('click', () => {
         callOverlay.style.display = 'none';
+    });
+
+    // ===== НОВЫЙ ОБРАБОТЧИК ДЛЯ ПОДТВЕРЖДЕНИЯ АДМИН-ДОСТУПА =====
+    socket.on('admin access granted', () => {
+        alert('✅ Доступ к админ-панели подтверждён!');
+        location.reload();
     });
 });
