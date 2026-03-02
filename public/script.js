@@ -238,7 +238,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (settingsBtn) {
         settingsBtn.addEventListener('click', () => {
             if (settingsModal) settingsModal.style.display = 'flex';
-            const myUser = allUsersList.find(u => u.id === currentEmail);
+            // ИСПРАВЛЕНО: ищем по флагу isSelf или по id
+            const myUser = allUsersList.find(u => u.isSelf || u.id === currentEmail);
             const settingsUsername = document.getElementById('settings-username');
             if (settingsUsername) {
                 settingsUsername.innerText = myUser ? (myUser.username || 'не указан') : 'загрузка...';
@@ -486,8 +487,9 @@ document.addEventListener('DOMContentLoaded', function() {
         profileHeader.addEventListener('click', () => openProfileModal());
     }
 
+    // ИСПРАВЛЕНО: используем isSelf для поиска своего профиля
     function openProfileModal() {
-        const user = allUsersList.find(u => u.id === currentEmail) || {};
+        const user = allUsersList.find(u => u.isSelf || u.id === currentEmail) || {};
         if (editFirstname) editFirstname.value = user.firstName || '';
         if (editLastname) editLastname.value = user.lastName || '';
         if (editUsername) editUsername.value = user.username || '';
@@ -519,7 +521,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (saveProfileBtn) {
         saveProfileBtn.addEventListener('click', () => {
             const newUsername = editUsername ? editUsername.value.trim() : '';
-            const currentUser = allUsersList.find(u => u.id === currentEmail);
+            const currentUser = allUsersList.find(u => u.isSelf || u.id === currentEmail);
             if (newUsername !== currentUser?.username) {
                 socket.emit('check username', newUsername, (response) => {
                     if (!response.available) {
@@ -584,7 +586,8 @@ document.addEventListener('DOMContentLoaded', function() {
     socket.on('user list', (users) => {
         allUsersList = users.filter(u => u.id && (u.username || u.firstName || u.lastName));
         filterAndRenderContacts();
-        const myUser = allUsersList.find(u => u.id === currentEmail);
+        // ИСПРАВЛЕНО: ищем себя по isSelf или по id
+        const myUser = allUsersList.find(u => u.isSelf || u.id === currentEmail);
         if (myUser) {
             updateProfileDisplay(myUser);
         }
@@ -593,8 +596,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function filterAndRenderContacts() {
         if (!searchInput || !usersList) return;
         const query = searchInput.value.trim().toLowerCase();
+        // ИСПРАВЛЕНО: исключаем себя из списка контактов
         let filtered = allUsersList.filter(u => 
-            u.id !== BOT_ID && (
+            u.id !== BOT_ID && !u.isSelf && (
                 (u.username && u.username.toLowerCase().includes(query)) ||
                 (u.firstName && u.firstName.toLowerCase().includes(query)) ||
                 (u.lastName && u.lastName.toLowerCase().includes(query)) ||
@@ -730,19 +734,27 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // ИСПРАВЛЕНО: теперь кнопка назад работает и из админ-панели
     if (backBtn) {
         backBtn.addEventListener('click', () => {
-            if (window.innerWidth <= 768) {
-                const sidebar = document.querySelector('.sidebar');
-                if (sidebar) sidebar.style.display = 'flex';
+            // Если активна вкладка админки, переключаемся на контакты
+            if (tabAdmin && tabAdmin.classList.contains('active')) {
+                setActiveTab(tabContacts);
+            } else if (currentChat) {
+                if (window.innerWidth <= 768) {
+                    const sidebar = document.querySelector('.sidebar');
+                    if (sidebar) sidebar.style.display = 'flex';
+                }
+                currentChat = null;
+                if (chatTitle) chatTitle.innerText = 'Выберите чат';
+                if (chatStatus) chatStatus.innerText = '';
+                if (chatAvatar) chatAvatar.src = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 40 40\'%3E%3Ccircle cx=\'20\' cy=\'20\' r=\'20\' fill=\'%232ea6ff\'/%3E%3Ctext x=\'20\' y=\'28\' font-size=\'20\' text-anchor=\'middle\' fill=\'white\' font-family=\'Arial\'%3E🍋%3C/text%3E%3C/svg%3E';
+                clearMessages();
+                const inputArea = document.getElementById('input-area');
+                if (inputArea) inputArea.style.display = 'none';
+            } else {
+                setActiveTab(tabContacts);
             }
-            currentChat = null;
-            if (chatTitle) chatTitle.innerText = 'Выберите чат';
-            if (chatStatus) chatStatus.innerText = '';
-            if (chatAvatar) chatAvatar.src = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 40 40\'%3E%3Ccircle cx=\'20\' cy=\'20\' r=\'20\' fill=\'%232ea6ff\'/%3E%3Ctext x=\'20\' y=\'28\' font-size=\'20\' text-anchor=\'middle\' fill=\'white\' font-family=\'Arial\'%3E🍋%3C/text%3E%3C/svg%3E';
-            clearMessages();
-            const inputArea = document.getElementById('input-area');
-            if (inputArea) inputArea.style.display = 'none';
         });
     }
 
@@ -827,7 +839,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const content = document.createElement('div');
         content.className = 'message-text';
-        // Проверка на премиум для текста
         const senderUser = allUsersList.find(u => u.id === msg.from);
         if (senderUser?.premium && msg.type === 'text') {
             content.classList.add('premium-message');
@@ -1070,7 +1081,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
-        // Premium кнопки
         document.querySelectorAll('.grant-premium').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const email = e.target.dataset.email;
@@ -1129,7 +1139,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     socket.on('badge toggle success', ({ email, badge }) => {
-        // Можно обновить интерфейс, но админ-панель уже обновится после следующего запроса
         requestAdminData();
     });
 
@@ -1138,7 +1147,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     socket.on('premium updated', ({ email, premium }) => {
-        // Обновляем allUsersList
         const user = allUsersList.find(u => u.id === email);
         if (user) user.premium = premium;
         filterAndRenderContacts();
@@ -1465,7 +1473,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!storiesBar) return;
         storiesBar.innerHTML = '';
 
-        // Кнопка создания истории
         const createBtn = document.createElement('div');
         createBtn.className = 'story-create-btn';
         createBtn.innerHTML = `
