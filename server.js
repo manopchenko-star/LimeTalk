@@ -31,7 +31,6 @@ async function loadUsers() {
   try {
     const data = await fs.readFile(USERS_FILE, 'utf8');
     usersByEmail = JSON.parse(data);
-    // Восстанавливаем adminAuthorized для премиум-пользователей
     for (let email in usersByEmail) {
       if (usersByEmail[email].premium) {
         adminAuthorized.add(email);
@@ -182,12 +181,12 @@ function getChatId(user1, user2) {
   return [user1, user2].sort().join(':');
 }
 
+// ИСПРАВЛЕНО: теперь включаем самого пользователя в список
 async function broadcastUserListForSocket(socket) {
   const email = getUserEmailBySocketId(socket.id);
   if (!email) return;
   const userList = [];
   for (let e in usersByEmail) {
-    if (e === email) continue;
     const u = usersByEmail[e];
     userList.push({
       id: u.email,
@@ -199,7 +198,8 @@ async function broadcastUserListForSocket(socket) {
       badge: u.badge,
       premium: u.premium || false,
       online: !!u.socketId,
-      lastSeen: u.lastSeen
+      lastSeen: u.lastSeen,
+      isSelf: e === email  // флаг, что это текущий пользователь
     });
   }
   userList.push({
@@ -208,7 +208,8 @@ async function broadcastUserListForSocket(socket) {
     device: 'bot',
     online: true,
     badge: false,
-    premium: false
+    premium: false,
+    isSelf: false
   });
   socket.emit('user list', userList);
 }
@@ -657,7 +658,6 @@ io.on('connection', (socket) => {
       socket.join(email);
       socket.emit('session restored', { email, username: user.username });
       broadcastUserListForSocket(socket);
-      // Отправляем статус админа, если пользователь в adminAuthorized (включая премиум)
       if (adminAuthorized.has(email)) socket.emit('admin status', true);
       const owners = getStoryOwnersForUser(email);
       socket.emit('stories owners', owners);
@@ -906,16 +906,12 @@ io.on('connection', (socket) => {
     usersByEmail[email].premium = newPremium;
     await saveUsers();
 
-    // Обновляем adminAuthorized в соответствии с новым статусом
     if (newPremium && !adminAuthorized.has(email)) {
       adminAuthorized.add(email);
     } else if (!newPremium && adminAuthorized.has(email)) {
-      // Если снимаем премиум, убираем из админов (только если не был админом через другие способы)
-      // В данной логике премиум = админ, поэтому удаляем
       adminAuthorized.delete(email);
     }
 
-    // Уведомляем всех онлайн-пользователей об изменении премиум-статуса
     for (let e in usersByEmail) {
       const user = usersByEmail[e];
       if (user.socketId) {
@@ -923,7 +919,6 @@ io.on('connection', (socket) => {
       }
     }
 
-    // Отправляем самому пользователю обновлённый статус админа, если он онлайн
     if (usersByEmail[email] && usersByEmail[email].socketId) {
       io.to(usersByEmail[email].socketId).emit('admin status', newPremium);
     }
