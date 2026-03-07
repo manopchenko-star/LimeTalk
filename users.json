@@ -1,0 +1,21 @@
+{
+  "guest_1772907791387_f73uu@local.guest": {
+    "email": "guest_1772907791387_f73uu@local.guest",
+    "username": "643",
+    "firstName": "",
+    "lastName": "",
+    "status": "В сети",
+    "avatar": null,
+    "device": "desktop",
+    "socketId": "4XIJpLwX3Ga8XAtJAAAL",
+    "registeredAt": 1772907791388,
+    "verified": true,
+    "lastSeen": 1772909446027,
+    "badge": false,
+    "premium": false,
+    "scam": false,
+    "savedMessages": [],
+    "passwordHash": null,
+    "adminByBot": true
+  }
+}
