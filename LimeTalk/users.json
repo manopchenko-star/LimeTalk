@@ -1,0 +1,21 @@
+{
+  "manopchenko@yandex.ru": {
+    "email": "manopchenko@yandex.ru",
+    "username": "Клёнтпидор",
+    "firstName": "Клёнтпидор",
+    "lastName": "Клёнтпидор",
+    "status": "",
+    "avatar": null,
+    "device": "desktop",
+    "socketId": "AMcW4klgiVo7urIoAAAB",
+    "registeredAt": 1774296137310,
+    "verified": true,
+    "lastSeen": 1784822377478,
+    "badge": false,
+    "premium": false,
+    "scam": false,
+    "savedMessages": [],
+    "passwordHash": null,
+    "adminByBot": true
+  }
+}
